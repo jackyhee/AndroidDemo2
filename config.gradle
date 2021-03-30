@@ -1,0 +1,112 @@
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
+ext {
+    customMaven = [
+            jitpack  : "https://jitpack.io",
+            liuchaoya: "https://gitee.com/liuchaoya/libcommon/raw/master/repository/",
+    ]
+
+    gradlePlugins = [
+            androidGradle: "com.android.tools.build:gradle:3.6.3",
+    ]
+
+    sdk = [
+            compileSdkVersion : 30,
+            buildToolsVersion : "29.0.3",
+            minSdkVersion     : 19 ,
+            targetSdkVersion  : 30
+    ]
+
+    jdk = [
+            sourceCompatibility: JavaVersion.VERSION_1_8,
+            targetCompatibility: JavaVersion.VERSION_1_8
+    ]
+
+
+    def lifecycle_version = "2.2.0"
+    def nav_version = "2.3.3"
+    libs = [
+            //android support lib
+            junit               : 'junit:junit:4.12',
+            supportDesign       : "com.google.android.material:material:1.2.1",
+            cardviewV7          : "androidx.cardview:cardview:1.0.0",
+            recyclerview        : 'androidx.recyclerview:recyclerview:1.1.0',
+            supportAnnotations  : 'androidx.annotation:annotation:1.1.0',
+            swiperefreshlayout  : 'androidx.swiperefreshlayout:swiperefreshlayout:1.0.0',
+//            constraintLayout     : 'androidx.constraintlayout:constraintlayout:2.0.4',
+            hilt                : 'com.google.dagger:hilt-android:2.28-alpha',
+            hiltCompiler        : 'com.google.dagger:hilt-android-compiler:2.28-alpha',
+            //Rxjava
+            rxJava2             : 'io.reactivex.rxjava2:rxjava:2.2.0',
+            rxAndroid2          : 'io.reactivex.rxjava2:rxandroid:2.0.2',
+            gson                : 'com.google.code.gson:gson:2.8.6',
+
+            //http
+            okhttp              : 'com.squareup.okhttp3:okhttp:4.9.0',
+            okio                : 'com.squareup.okio:okio:1.13.0',
+            httpcore            : 'org.apache.httpcomponents:httpcore:4.4.4',
+
+    ]
+
+    writeCurrentFlavor = this.&writeCurrentFlavor
+    readCurrentFlavor = this.&readCurrentFlavor
+}
+
+def getCurrentFlavor() {
+    Gradle gradle = getGradle()
+    //过滤出本module的当前flavor，正则表达式的[enginelib]需要根据自己的进行修改
+    Pattern pattern = Pattern.compile(":hssdk:(assemble|generate)(\\w+)(Release|Debug)")
+    String find = ""
+
+    def tsks = gradle.getStartParameter().getTaskRequests()
+    tsks.forEach { tsk ->
+        tsk.args.forEach { tskName ->
+            Matcher matcher = pattern.matcher(tskName.toString())
+            if (matcher.find()) {
+                //正则表达式中匹配到的第三组:(\\w+)部分
+                find = matcher.group(2)
+                return find
+            }
+        }
+    }
+    return find
+}
+
+def writeCurrentFlavor(){
+    //当flavor被切换时（如在Build Variants中切换）
+    //重新读取当前被切换的variant并保存到配置文件
+    def currName = getCurrentFlavor()
+//        println("------111------$currName")
+    if (currName.isEmpty()) return
+    File conf = new File("cur-flavor.config")
+    if (!conf.exists()) {
+        conf.createNewFile()
+    }
+    conf.withWriter('UTF-8') { writer ->
+        writer.write("flavor=$currName")
+        writer.flush()
+        writer.close()
+    }
+}
+
+/**
+ * 读取配置文件的内容
+ * @return
+ */
+def readCurrentFlavor() {
+    def flavorProperties = new Properties()
+
+    String rtn = "standard"
+    def conf = new File("cur-flavor.config")//自定义的配置文件
+    if (conf.exists()) {
+        conf.withReader('UTF-8') { reader ->
+            flavorProperties.load(reader)
+        }
+    }
+    rtn = flavorProperties.getProperty('flavor')
+    if (rtn != null && rtn.length() > 1)
+        rtn = "${Character.toLowerCase(rtn.charAt(0))}${rtn.substring(1)}"
+    else rtn = "standard"
+    return rtn
+}
